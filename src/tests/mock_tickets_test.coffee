@@ -9,8 +9,7 @@ should = require "should"
 
 config = require("../config/config")['development']
 
-request = require "request"
-
+debuglog = require("debug")("ticketman:test:mock_tickets_test")
 async = require "async"
 
 ticketManager = new TicketManager("test ticket_manager", "http://localhost:3456")
@@ -34,7 +33,9 @@ describe "test mock_tickets", ->
       arr.push i
 
     iterator = (item, callback)->
-      ticketManager.issue "#{title}-#{item}", category, content, callback
+      title = "#{title}-#{item}"
+      debuglog "[iterator] issue ticket:#{title}"
+      ticketManager.issue title, category, content, callback
 
     async.each arr, iterator, done
 
