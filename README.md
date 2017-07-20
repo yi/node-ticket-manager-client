@@ -1,6 +1,12 @@
 # node-ticket-manager-client
 the client(worker) part of https://github.com/yi/node-ticket-manager
 
+## Install
+
+```
+npm install ticketman-client
+```
+
 ## NodeJS Module Usage
 ```javascript
 var  TicketWorker = require("ticketman").TicketWorker;
