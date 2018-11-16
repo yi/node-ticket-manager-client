@@ -32,17 +32,19 @@ class TicketManager
         owner_id : @name
         category : category
         content : content
-
+    console.dir options
     request options, (err, res, body)->
       debuglog "err:#{err}, res.statusCode:#{if res? then res.statusCode else "n/a"}, body:%j", body
       return callback err if err?
+      #console.dir body
       unless res.statusCode is 200
         return callback(new Error("Network error, res.statusCode:#{res.statusCode}"))
-      unless body? and body.success and body.ticket
-        return callback(new Error("Fail to create ticket:#{title}##{category}, due to #{body.error || "unknown error" + JSON.stringify(body)}"))
 
-      body.ticket.id = body.ticket._id if body.ticket._id?
-      return callback null, body.ticket
+      unless body? and body.success and body.result?
+        return callback(new Error("Fail to create ticket:#{title}##{category}, due to #{body.message || "unknown error" + JSON.stringify(body)}"))
+
+      #body.result.id = body.result._id if body.result._id?
+      return callback null, body.result
 
 
 module.exports=TicketManager

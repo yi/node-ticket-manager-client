@@ -1,6 +1,6 @@
 
 assert = require "assert"
-
+_ = require "lodash"
 oauth = require "./utils/oauth"
 
 env = process.env.NODE_ENV || 'development'
@@ -34,12 +34,20 @@ class TicketWorker extends EventEmitter
   #     options.basicAuth : basicAuth
   #
   constructor: (options={}) ->
+    super(options)
 
-    assert (@name = options.name), "missing id"
-    assert (@id = options.id), "missing id"
-    assert (@consumerSecret = options.consumer_secret || options.consumerSecret), "missing consumer secret"
-    assert (@watchCategory = options.category), "missing category to watch"
-    assert (@host = options.host), "missing host"
+    console.dir options
+    #@name = options.name
+    @id = options.id
+    @consumerSecret = options.consumer_secret || options.consumerSecret
+    @watchCategory = options.category
+    @host = options.host
+
+    #assert @name, "missing name"
+    assert @id, "missing id"
+    assert @consumerSecret, "missing consumer secret"
+    assert @watchCategory, "missing category to watch"
+    assert @host, "missing host"
 
     @oauth =
       consumer_key: @id
@@ -55,7 +63,7 @@ class TicketWorker extends EventEmitter
     @ticket = null
     @commenceAt = 0
 
-    debuglog "constructor, @name:#{@name}, @watchCategory:#{@watchCategory}, @timeout:#{@timeout}, @interval:#{@interval}"
+    debuglog "constructor,  @watchCategory:#{@watchCategory}, @timeout:#{@timeout}, @interval:#{@interval}"
     setInterval (()=>@watch()), @interval
 
     debuglog "[TicketWorker:constructor] @:%j", @
@@ -72,6 +80,7 @@ class TicketWorker extends EventEmitter
     return
 
   setBusy : (val)->
+    debuglog "setBusy val:#{val}"
     @_isBusy = Boolean(val)
     @commenceAt = Date.now() if @_isBusy
 
@@ -91,24 +100,26 @@ class TicketWorker extends EventEmitter
       headers : oauth.makeSignatureHeader(@id, 'PUT', PATH_FOR_REQUIRE_TICKET, body, @consumerSecret)
       json : body
 
-    request options, (err, res, result)=>
-      debuglog "requireTicket: err:#{err}, res.statusCode:#{if res? then res.statusCode else "n/a"}, ticket:%j", (if ticket? then "#{ticket.title}(#{ticket._id})" else "n/a")
+    request options, (err, res, data)=>
+      ticket = data.result || {}
+      debuglog "requireTicket: err:#{err}, res.statusCode:#{if res? then res.statusCode else "n/a"}, ticket:%j", (if data.success then "#{ticket.title}(#{ticket.id})" else data.message)
 
       if err? then return debuglog "requireTicket: err: #{err}"
 
       unless res.statusCode is 200 then return debuglog "requireTicket: request failed, server status: #{res.statusCode}"
 
-      unless result.success?
+      unless data.success?
         @setBusy(false)
-        debuglog "requireTicket: request failed, #{result.error}"
+        debuglog "requireTicket: request failed, #{data.message}"
         return
 
-      unless result.ticket?
+      console.dir ticket
+      if _.isEmpty(ticket)
         @setBusy(false)
         debuglog "requireTicket: no more ticket"
         return
 
-      @ticket = result.ticket
+      @ticket = ticket
       @ticket.id = @ticket._id if @ticket._id
 
       @emit "new ticket", @ticket
@@ -123,7 +134,7 @@ class TicketWorker extends EventEmitter
     #@ticket = null
     #@emit "timeout", _ticket
     #@setBusy(false)
-    return
+    #return
 
   # complete ticket
   complete : ()->
@@ -136,26 +147,27 @@ class TicketWorker extends EventEmitter
       headers : oauth.makeSignatureHeader(@id, 'PUT', path, {}, @consumerSecret)
       json : {}
       url: "#{@host}#{path}"
+    console.dir options
+    request options, (err, res, data)=>
+      ticket = data.result||{}
+      debuglog "complete: err:#{err}, res.statusCode:#{if res? then res.statusCode else "n/a"}, ticket:%j", (if data.success then "#{ticket.title}(#{ticket.id})" else data.message)
+      #return
 
-    request options, (err, res, ticket)->
-      debuglog "complete: err:#{err}, res.statusCode:#{if res? then res.statusCode else "n/a"}, ticket:%j", (if ticket? then "#{ticket.title}(#{ticket._id})" else "n/a")
+      _ticket = @ticket
+      @ticket = null
+      @emit "complete", _ticket
+      @setBusy(false)
       return
-
-    _ticket = @ticket
-    @ticket = null
-    @emit "complete", _ticket
-    @setBusy(false)
-    return
 
   # send comment on to current ticket
   update : (message, kind='default')->
     return debuglog "update: ERROR: current has no ticket. message:#{message}" unless @ticket?
 
     body =
-      kind : kind
-      content : message
+      #kind : kind
+      comment : message
 
-    path = "/api/tickets/#{@ticket._id}/comment"
+    path = "/api/tickets/#{@ticket.id}/comment"
 
     options =
       method: 'PUT'
@@ -163,9 +175,10 @@ class TicketWorker extends EventEmitter
       headers : oauth.makeSignatureHeader(@id, 'PUT', path, body, @consumerSecret)
       url: "#{@host}#{path}"
       json : body
-
-    request options, (err, res, ticket)->
-      debuglog "update: err:#{err}, res.statusCode:#{if res? then res.statusCode else "n/a"}, ticket:%j", (if ticket? then "#{ticket.title}(#{ticket._id})" else "n/a")
+    console.dir options
+    request options, (err, res, data)->
+      ticket = data.result||{}
+      debuglog "update: err:#{err}, res.statusCode:#{if res? then res.statusCode else "n/a"}, ticket:%j", (if data.success then "#{ticket.title}(#{ticket.id})" else data.message)
       return
     return
 
@@ -191,9 +204,10 @@ class TicketWorker extends EventEmitter
       headers : oauth.makeSignatureHeader(@id, 'PUT', path, body, @consumerSecret)
       url: "#{@host}#{path}"
       json : body
-
-    request options, (err, res, ticket)=>
-      debuglog "giveup: err:#{err}, res.statusCode:#{if res? then res.statusCode else "n/a"}, ticket:%j", (if ticket? then "#{ticket.title}(#{ticket._id})" else "n/a")
+    console.dir options
+    request options, (err, res, data)=>
+      ticket = data.result||{}
+      debuglog "giveup: err:#{err}, res.statusCode:#{if res? then res.statusCode else "n/a"}, ticket:%j", (if data.success then "#{ticket.title}(#{ticket.id})" else data.message)
       _ticket = @ticket
       @ticket = null
       @emit "giveup", _ticket
