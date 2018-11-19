@@ -121,7 +121,10 @@ class TicketWorker extends EventEmitter
 
       @ticket = ticket
       @ticket.id = @ticket._id if @ticket._id
-
+      try
+        @ticket.content = JSON.parse(ticket.content)
+      catch err
+        debuglog "ticket.content not json "
       @emit "new ticket", @ticket
       return
     return
