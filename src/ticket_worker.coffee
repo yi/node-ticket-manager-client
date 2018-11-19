@@ -120,7 +120,7 @@ class TicketWorker extends EventEmitter
         return
 
       @ticket = ticket
-      @ticket.id = @ticket._id if @ticket._id
+      #@ticket.id = @ticket._id if @ticket._id
       try
         @ticket.content = JSON.parse(ticket.content)
       catch err
